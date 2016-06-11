@@ -1,0 +1,1 @@
+Library scripts or tools belong here. PerlinNoise has functions to create natural looking randomness. ProbGen can be used to randomly pick from an array of objects with probabilaty. UnityTools is a misc package for unity Specific tools.

@@ -1,0 +1,1 @@
+Add textures into this folder, .png, .jpg, .gif.

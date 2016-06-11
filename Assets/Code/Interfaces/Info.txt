@@ -1,0 +1,1 @@
+Keep all interfaces within this folder. Interfaces are named weird. So if i have an interface for a camera rig it would be called IRigable. They have a leading "I" and usually end with "able"

@@ -1,0 +1,1 @@
+Keep all enum code within this folder.
