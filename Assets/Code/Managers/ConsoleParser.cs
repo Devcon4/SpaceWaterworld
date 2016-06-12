@@ -7,6 +7,8 @@ using System.Runtime.Remoting.Messaging;
 using System.Xml;
 using UnityEditor;
 using UnityEngine.UI;
+using Jurassic;
+using Jurassic.Library;
 
 public class ConsoleParser : MonoBehaviour {
 
@@ -21,7 +23,15 @@ public class ConsoleParser : MonoBehaviour {
     // Use this for initialization
     void Start () {
         CurrentNode = ShipComputer.Directory.Root[0];
-        // Commands.
+
+        // *** api declaration ***
+        ShipComputer.ComponentFirmwares.Add(new Firmware {
+            Name = "log",
+            HelpText = "Prints onto the screen",
+            Func = new Action<string>(AddConsoleLine)
+        });
+
+        // *** Command Declaration ***
         ConsoleCommands.Add(new Command {
             Aliases = new List<string> {"cls", "clear"},
             HelpText = "Clears the console",
@@ -48,22 +58,45 @@ public class ConsoleParser : MonoBehaviour {
         });
 
         ConsoleCommands.Add(new Command {
+            Aliases = new List<string> { "run" },
+            HelpText = "Runs a string of Javascript",
+            Func = new CommandDelegate(RunJS)
+        });
+
+        ConsoleCommands.Add(new Command {
+            Aliases = new List<string> { "api" },
+            HelpText = GetAPIHelpText(),
+            Func = new CommandDelegate(ShowApiCommands)
+        });
+
+        ConsoleCommands.Add(new Command {
             Aliases = new List<string> { "help" },
             HelpText = GetMainHelpText(),
             Func = new CommandDelegate(HelpText)
         });
 
+        // Init function's
         Startup();
     }
 
     void Startup() {
-        ScreenText.text = "STARTING... \n---Galaxstar Ship Terminal---\n" + CurrentNode.Path() + "> ";
+        AddConsoleLine("STARTING...");
+        AddConsoleLine("---Galaxstar Ship Terminal---");
+        NewConsoleLine();
     }
 
     string GetMainHelpText() {
         var text = "Usage: \"help [command Name]\"\n\tCommands:\n\t\t[Aliases] - [HelpText]";
         foreach (var consoleCommand in ConsoleCommands) {
             text += "\n\t -- [\"" + string.Join("\", \"", consoleCommand.Aliases.ToArray()) + "\"] - " + consoleCommand.HelpText;
+        }
+        return text;
+    }
+
+    string GetAPIHelpText() {
+        var text = "Usage: \"api [api Name]\"\n\tAPI's:\n\t\t[Name] - [HelpText]";
+        foreach (var firmware in ShipComputer.ComponentFirmwares) {
+            text += "\n\t -- [\"" + firmware.Name + "\"] - " + firmware.HelpText;
         }
         return text;
     }
@@ -89,16 +122,29 @@ public class ConsoleParser : MonoBehaviour {
         AddConsoleLine(log + options);
     }
 
-    void AddConsoleLine(string options) {
+    public void AddConsoleLine(string options) {
         ScreenText.text += "\n\t" + options;
     }
 
-    void UpdateDirectory() {
-    }
-
-    void NewConsoleLine() {
+    public void NewConsoleLine() {
         ScreenText.text += "\n" + CurrentNode.Path() + "> ";
     }
+
+    public void RunCommand(string currentLine) {
+        var splitLine = currentLine.Split(null);
+        string result = null;
+        foreach (var command in ConsoleCommands) {
+            result = command.Aliases.Find(x => x == splitLine[0]);
+            if (result != null) {
+                command.Func.DynamicInvoke(command, String.Join(" ", splitLine.Skip(1).ToArray()));
+                break;
+            }
+        }
+
+        if (result == null) { Error("INVALID", "No command called " + splitLine[0]); }
+    }
+
+    #region Command Functions
 
     // cls, clear.
     void ClearConsole(Command command = null, string options = null) {
@@ -168,6 +214,29 @@ public class ConsoleParser : MonoBehaviour {
         Error("DIR", "No navigation occured");
     }
 
+    // run.
+    void RunJS(Command command, string options) {
+        if (string.IsNullOrEmpty(options)) { Error("PARAMCOUNT", "RUN needs some javascript code to run"); return; }
+        try {
+            ShipComputer.APIEngine.Execute(options);
+        } catch (JavaScriptException ex) {
+            AddConsoleLine(ex.Message);
+        }
+    }
+
+    // api.
+    void ShowApiCommands(Command command, string options) {
+        if (options.Any(Char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
+        if (string.IsNullOrEmpty(options)) { AddConsoleLine(command.HelpText); return; }
+        foreach (var firmware in ShipComputer.ComponentFirmwares) {
+            if (firmware.Name == options) {
+                AddConsoleLine(firmware.HelpText);
+                break;
+            }
+        }
+        Error("INVALID", "No command called " + options);
+    }
+
     // help.
     void HelpText(Command command, string options) {
         if(options.Any(Char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
@@ -193,21 +262,9 @@ public class ConsoleParser : MonoBehaviour {
 
     }
 
-    public void RunCommand(string currentLine) {
-        var splitLine = currentLine.Split(null);
-        string result = null;
-        foreach (var command in ConsoleCommands) {
-            result = command.Aliases.Find(x => x == splitLine[0]);
-            if (result != null) {
-                command.Func.DynamicInvoke(command, String.Join(" ", splitLine.Skip(1).ToArray()));
-                break;
-            }
-        }
+    #endregion
 
-        if (result == null) { Error("INVALID", "No command called " + splitLine[0]); }
-    }
-
-    // Update is called once per frame
+    // Todo: Should we have a cursor?
     void Update () {
 
         foreach (char c in Input.inputString) {
