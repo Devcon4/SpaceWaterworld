@@ -14,15 +14,17 @@ public class ConsoleParser : MonoBehaviour {
 
     public ShipComputer ShipComputer;
     public Text ScreenText;
+    public Dictionary<int, string> PastLines = new Dictionary<int, string>();
     public string CurrentLine;
     public List<Command> ConsoleCommands = new List<Command>();
     public Node CurrentNode;
     private bool _isActive = true;
+    private int _pastLineIndex = 0;
 
     public delegate void CommandDelegate(Command command, string options);
 
     // Use this for initialization
-    void Start () {
+    void Start() {
 
         if (ShipComputer.Directory.Root.Count > 0) {
             CurrentNode = ShipComputer.Directory.Root[0];
@@ -43,18 +45,18 @@ public class ConsoleParser : MonoBehaviour {
             Name = "error",
             HelpText = "Logs an error to the console",
             Usage = "--usage: error(\"DIR\", \"No directory called\"); --output: \"DIRECTORY ERROR: No directory called\"",
-            Func = new Action<string,string>(Error)
+            Func = new Action<string, string>(Error)
         });
 
         // *** Command Declaration ***
         ConsoleCommands.Add(new Command {
-            Aliases = new List<string> {"cls", "clear"},
+            Aliases = new List<string> { "cls", "clear" },
             HelpText = "Clears the console",
             Func = new CommandDelegate(ClearConsole)
         });
 
-        ConsoleCommands.Add(new Command{
-            Aliases = new List<string> { "ls", "dir", "list", "directory"},
+        ConsoleCommands.Add(new Command {
+            Aliases = new List<string> { "ls", "dir", "list", "directory" },
             Options = new List<string> { "-E", "--Expanded", "-V", "--Volumes" },
             HelpText = "Shows everything in the current directory",
             Func = new CommandDelegate(ShowDir)
@@ -160,6 +162,14 @@ public class ConsoleParser : MonoBehaviour {
         ScreenText.text += "\n" + CurrentNode.Path() + "> ";
     }
 
+    public void ChangeCurrentLine(string newLine) {
+        if (CurrentLine.Length > 1) {
+            ScreenText.text = ScreenText.text.Substring(0, ScreenText.text.Length - CurrentLine.Length);
+        }
+        CurrentLine = newLine;
+        ScreenText.text += newLine;
+    }
+
     public void RunCommand(string currentLine) {
         var splitLine = currentLine.Split(null);
         string result = null;
@@ -180,18 +190,18 @@ public class ConsoleParser : MonoBehaviour {
     void ClearConsole(Command command = null, string options = null) {
         ScreenText.text = "";
     }
-    
+
     // ls, dir.
     void ShowDir(Command command, string options) {
         if (options.Any(Char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
         string print;
 
         if (!string.IsNullOrEmpty(options)) {
-            if (command.Options.Exists(x => new[] {"-E", "--Expanded"}.Contains(x) && options.Contains(x))) {
+            if (command.Options.Exists(x => new[] { "-E", "--Expanded" }.Contains(x) && options.Contains(x))) {
                 Error("UPCOMING", "The expanded view is not yet completed!");
                 print = "Expanded directory view:";
 
-            } else if (command.Options.Exists(x => new[] {"-V", "--Volumes"}.Contains(x))) {
+            } else if (command.Options.Exists(x => new[] { "-V", "--Volumes" }.Contains(x))) {
                 print = "Available Volumes:";
                 foreach (var vol in ShipComputer.Directory.Root) {
                     print += "\n\t -" + vol.Name + ":/";
@@ -226,7 +236,7 @@ public class ConsoleParser : MonoBehaviour {
 
         if (options.Contains(":")) {
             splitOptions = options.Split(':');
-            if(splitOptions.Length > 2) { Error("CHVOL", "More that one ':' in CD call"); return; }
+            if (splitOptions.Length > 2) { Error("CHVOL", "More that one ':' in CD call"); return; }
             Volume result = ShipComputer.Directory.Root.FirstOrDefault(x => x.Name == splitOptions[0]);
             if (result == null) { Error("CHVOL", "No volume called " + splitOptions[0]); return; }
             virtualDir = result;
@@ -241,7 +251,7 @@ public class ConsoleParser : MonoBehaviour {
         foreach (var option in splitOptions) {
             if (option == "..") {
                 if (virtualDir.GetType().Name == "Folder") {
-                    virtualDir = ((Folder) virtualDir).Parent;
+                    virtualDir = ((Folder)virtualDir).Parent;
                     break;
                 }
                 Error("DIR", "No parent directory found");
@@ -250,7 +260,7 @@ public class ConsoleParser : MonoBehaviour {
 
             if (virtualDir.ChildrenNodes.Exists(x => x.FormattedName() == option)) {
                 var selectedDir = virtualDir.ChildrenNodes.Find(x => x.FormattedName() == option);
-                if(selectedDir == null) {
+                if (selectedDir == null) {
                     Error("DIR", "No directory found at \"" + virtualDir.Path() + selectedDir.Path() + "\"");
                     return;
                 }
@@ -295,9 +305,9 @@ public class ConsoleParser : MonoBehaviour {
 
     // read.
     void ReadFile(Command command, string options) {
-        if(options.Any(char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
-        if(string.IsNullOrEmpty(options)) { Error("PARAMREQ", "READ required a file to read"); return; }
-        if(CurrentNode.Files.Count < 1) { Error("PARAMREQ", "No files found in directory"); return; }
+        if (options.Any(char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
+        if (string.IsNullOrEmpty(options)) { Error("PARAMREQ", "READ required a file to read"); return; }
+        if (CurrentNode.Files.Count < 1) { Error("PARAMREQ", "No files found in directory"); return; }
 
         var file = CurrentNode.Files.FirstOrDefault(x => x.FormattedName() == options);
         if (file == null) { Error("PARAMREQ", "No file called " + options); return; }
@@ -317,8 +327,8 @@ public class ConsoleParser : MonoBehaviour {
 
     // help.
     void HelpText(Command command, string options) {
-        if(options.Any(Char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
-        if(string.IsNullOrEmpty(options)) { AddConsoleLine(command.HelpText); return; }
+        if (options.Any(Char.IsWhiteSpace)) { Error("PARAMCOUNT", "Wrong amount of paramaters"); return; }
+        if (string.IsNullOrEmpty(options)) { AddConsoleLine(command.HelpText); return; }
         string result = null;
         foreach (var consoleCommand in ConsoleCommands) {
             result = consoleCommand.Aliases.Find(x => x == options);
@@ -343,8 +353,23 @@ public class ConsoleParser : MonoBehaviour {
     #endregion
 
     // Todo: Should we have a cursor?
-    void Update () {
+    void Update() {
         if (_isActive) {
+            if (Input.GetKeyDown(KeyCode.UpArrow)) {
+
+                _pastLineIndex--;
+                _pastLineIndex = Mathf.Clamp(_pastLineIndex--, 0, PastLines.Count - 1);
+
+                if (PastLines.ContainsKey(_pastLineIndex)) { ChangeCurrentLine(PastLines[_pastLineIndex]); }
+
+            } else if (Input.GetKeyDown(KeyCode.DownArrow)) {
+
+                _pastLineIndex++;
+                _pastLineIndex = Mathf.Clamp(_pastLineIndex, 0, PastLines.Count - 1);
+
+                if (PastLines.ContainsKey(_pastLineIndex)) { ChangeCurrentLine(PastLines[_pastLineIndex]); }
+            }
+
             foreach (char c in Input.inputString) {
                 // Backspace - Remove the last character
                 if (c == "\b"[0]) {
@@ -357,11 +382,14 @@ public class ConsoleParser : MonoBehaviour {
                 else if (c == "\n"[0] || c == "\r"[0]) {
                     // "\n" for Mac, "\r" for windows.
                     RunCommand(CurrentLine);
+                    PastLines.Add(PastLines.Count, CurrentLine);
+                    _pastLineIndex = PastLines.Count;
                     CurrentLine = "";
                     NewConsoleLine();
                 }
                 // Normal text input - just append to the end
                 else {
+
                     ScreenText.text += c;
                     CurrentLine += c;
                 }
