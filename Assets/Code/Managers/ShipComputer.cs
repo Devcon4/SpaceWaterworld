@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class ShipComputer : MonoBehaviour {
     public string Name;
-    public FileSystem Directory = new FileSystem("GALAXSTARCONSOLE");
+    public FileSystem Directory = new FileSystem();
     public List<Firmware> ComponentFirmwares = new List<Firmware>();
     public ScriptEngine APIEngine = new ScriptEngine();
 

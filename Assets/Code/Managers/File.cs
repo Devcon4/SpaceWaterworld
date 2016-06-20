@@ -12,7 +12,7 @@ public class File : IFileable {
         ActualLocation = actualLocation;
         Content = content;
 
-        Parent.ChildrenNodes.Add(this);
+        Parent.Files.Add(this);
     }
 
     public string Path() {
